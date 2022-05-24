@@ -15,7 +15,7 @@ myLocation="eg centralus,eastus,westus2"
 myResourceGroup="name of RG"
 # Subscription ID can be found @ https://portal.azure.com/#blade/Microsoft_Azure_Billing/SubscriptionsBlade
 # Copy and paste the ID replacing the value in the quotes
-mySubscriptionID="eg f7c0XXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX>"
+mySubscriptionID="eg f7c0XXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 # Must be unique, recommend to namespace inline with your naming scheme eg COMPANYNAME-blueventhubns01
 myEventHubNamespace="must be unique no spaces"
 # Statically set to reduce friction but this value can be changed to suit your preferences or needs

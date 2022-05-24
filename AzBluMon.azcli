@@ -63,7 +63,7 @@ az provider register --namespace "Microsoft.Insights"
 
 # Set diagnostic settings for all resources in the resource group to the previously created event hub
 # Start with creating array of resource IDs to iterate through
-resourceIDs=($(az resource list -g TAM-ResourceGroup-Central-US --query "[].id" -o tsv))
+resourceIDs=($(az resource list -g $myResourceGroup --query "[].id" -o tsv))
 for resourceID in "${resourceIDs[@]}"; do
     # TODO: Create check to make sure we aren't creating a diagnostic setting for the event hub
     logString="["

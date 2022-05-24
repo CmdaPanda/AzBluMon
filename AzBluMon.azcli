@@ -76,7 +76,8 @@ for resourceID in "${resourceIDs[@]}"; do
       logString+='"enabled": true, "retentionPolicy": {"enabled": false, "days": 0 }},'
     done
     # Remove last ',' from the json and replace with closing ']'
-    modifiedLogString=$logstring
+    #modifiedLogString=$logstring
+    modifiedLogString=${logString: :-1}
     modifiedLogString+="]"
     # Create the diagnostic setting for each resource ID with compiled json
     az monitor diagnostic-settings create \

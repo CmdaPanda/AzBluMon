@@ -1,0 +1,90 @@
+#!/bin/bash
+# Author: Justin Kikani 5/18/2022
+# Purpose: To simplify the creation of the event hubs integration for blumira within Azure, 
+# this is meant to turn on the diagnostic settings for Azure resources located within the 
+# same resource group as the created namespace name, due to the way licensing works within Azure
+# this script does not encompass metrics enablement or the ability to turn on Azure Active Directory
+# or Defender integrations, this is in the same vein as poshim for automated windows logging
+
+# Parameters for end-user to change to match their environment and resources, most can be found by logging in to portal.azure.com
+# This assumes they already have a subscription and a resource group in their environment
+# In the future this could be replaced with echos to get the user to type these in or copy from their environment
+myLocation="<someLocation: eg centralus,eastus,westus>"
+myResourceGroup="<someResourceGroup: name of RG>"
+mySubscriptionID="<someSubscriptionID: eg f7c0XXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX>"
+myEventHubNamespace="<someUniqueNamespaceName: must be unique no spaces>"
+myEventHubName="<someEventHubName: must not have spaces>"
+
+# Have user login to their tenant
+az login
+
+# Set the rource group that you'll be working with
+az account set \
+    --name $mySubscriptionID
+
+# Create the Azure Event Hub Namespace
+az eventhubs namespace create \
+    --name $myEventHubNamespace \
+    --resource-group $myResourceGroup \
+    --location $myLocation \
+    --sku Basic \
+    --capacity 1 \
+    --enable-auto-inflate false
+
+# Set SAS Auth and Rules for Event Hub
+az eventhubs namespace authorization-rule create \
+    --namespace-name $myEventHubNamespace \
+    --name "LogsToBlumira" \
+    --rights Listen
+
+# Create the Azure Event Hub
+az eventhubs eventhub create \
+    --name $myEventHubName \
+    --namespace-name $myEventHubNamespace \
+    --resource-group $myResourceGroup \
+    --message-retention 1
+
+# Get and store the resource ID for the event hub just created
+myEventHubID=$(az eventhubs eventhub list --namespace-name $myEventHubNamespace --resource-group $myResourceGroup --query "[].id" -o tsv)
+
+# Get and store the authorization ID for the rootManagedShareKey rule for continued setup of resources
+myRuleID=$(az eventhubs namespace authorization-rule list --resource-group $myResourceGroup --namespace-name $myEventHubNamespace --query "[?name == 'RootManageSharedAccessKey'].id" -o tsv)
+
+# Output primary connection string for end-user to copy and use within Blumira
+echo "Please copy & document the primary connection string shown between the quotation marks starting w/ Endpoint="
+az eventhubs namespace authorization-rule keys list \
+    --resource-group $myResourceGroup \
+    --namespace-name $myEventHubNamespace \
+    --name "LogsToBlumira" | --query "primaryConnectionString"
+
+# Register Microsoft.Insights resource provider for subscription/tenant
+az provider register --namespace "Microsoft.Insights"
+
+# Set diagnostic settings for all resources in the resource group to the previously created event hub
+# Start with creating array of resource IDs to iterate through
+resourceIDs=($(az resource list -g TAM-ResourceGroup-Central-US --query "[].id" -o tsv))
+for resourceID in "${resourceIDs[@]}"; do
+    logString='['
+    # For each resource ID we need to create another array to iterate through to create the log settings for each log category
+    logCategories=($(az monitor diagnostic-settings categories list --resource $resourceID --query "value[?categoryType == 'Logs'].[name]" -o tsv))
+    # Time to nest these for loops
+    # Loop through each category to build json
+    for logCategory in "${logCategories[@]}"; do
+      logString+='{"category":' 
+      logString+='"'"$logCategory"'",'
+      logString+='"enabled": true, "retentionPolicy": {"enabled": false, "days": 0 }},'
+    done
+    # Remove last ',' from the json and replace with closing ']'
+    modifiedLogString=${logString: :-1}
+    modifiedLogString+=']'
+    # Create the diagnostic setting for each resource ID with compiled json
+    # TODO: Create check to make sure we aren't creating a diagnostic setting for the event hub
+    az monitor diagnostic-settings create \
+        --name BlumiraDiagSetting \
+        --resource $resourceID \
+        --resource-group $myResourceGroup \
+        --event-hub $myEventHubID \
+        --event-hub-rule $myRuleID \
+        --logs $modifiedLogString
+    done
+done

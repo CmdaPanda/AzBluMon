@@ -9,11 +9,17 @@
 # Parameters for end-user to change to match their environment and resources, most can be found by logging in to portal.azure.com
 # This assumes they already have a subscription and a resource group in their environment
 # In the future this could be replaced with echos to get the user to type these in or copy from their environment
-myLocation="<someLocation: eg centralus,eastus,westus>"
-myResourceGroup="<someResourceGroup: name of RG>"
-mySubscriptionID="<someSubscriptionID: eg f7c0XXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX>"
-myEventHubNamespace="<someUniqueNamespaceName: must be unique no spaces>"
-myEventHubName="<someEventHubName: must not have spaces>"
+# The location should be where the majority of your resources are deployed
+myLocation="eg centralus,eastus,westus2"
+# Must be a resource group that currently exists in your Subscription
+myResourceGroup="name of RG"
+# Subscription ID can be found @ https://portal.azure.com/#blade/Microsoft_Azure_Billing/SubscriptionsBlade
+# Copy and paste the ID replacing the value in the quotes
+mySubscriptionID="eg f7c0XXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX>"
+# Must be unique, recommend to namespace inline with your naming scheme eg COMPANYNAME-blueventhubns01
+myEventHubNamespace="must be unique no spaces"
+# Statically set to reduce friction but this value can be changed to suit your preferences or needs
+myEventHubName="bluEventHub"
 
 # Have user login to their tenant
 az login
@@ -51,13 +57,6 @@ myEventHubID=$(az eventhubs eventhub list --namespace-name $myEventHubNamespace 
 # Get and store the authorization ID for the rootManagedShareKey rule for continued setup of resources
 myRuleID=$(az eventhubs namespace authorization-rule list --resource-group $myResourceGroup --namespace-name $myEventHubNamespace --query "[?name == 'RootManageSharedAccessKey'].id" -o tsv)
 
-# Output primary connection string for end-user to copy and use within Blumira
-echo "Please copy & document the primary connection string shown below (the ENTIRE output)"
-az eventhubs namespace authorization-rule keys list \
-    --resource-group $myResourceGroup \
-    --namespace-name $myEventHubNamespace \
-    --name "LogsToBlumira" --query "primaryConnectionString" -o tsv
-
 # Register Microsoft.Insights resource provider for subscription/tenant
 az provider register --namespace "Microsoft.Insights"
 
@@ -88,3 +87,14 @@ for resourceID in "${resourceIDs[@]}"; do
         --event-hub-rule $myRuleID \
         --logs $modifiedLogString
 done
+
+# Output primary connection string for end-user to copy and use within Blumira
+echo "Primary Connection String (Please copy and paste this in Blumira):"
+az eventhubs namespace authorization-rule keys list \
+    --resource-group $myResourceGroup \
+    --namespace-name $myEventHubNamespace \
+    --name "LogsToBlumira" --query "primaryConnectionString" -o tsv
+# Output event hub name for end-user to copy and use within Blumira
+echo "Event Hub Name (Please copy and past this in Blumira):"
+echo $myEventHubName
+

@@ -18,7 +18,7 @@ myEventHubName="<someEventHubName: must not have spaces>"
 # Have user login to their tenant
 az login
 
-# Set the rource group that you'll be working with
+# Set the Subscription that you'll be working with by ID, more reliable than name
 az account set \
     --name $mySubscriptionID
 

@@ -21,8 +21,8 @@ myEventHubNamespace="must be unique no spaces"
 # Statically set to reduce friction but this value can be changed to suit your preferences or needs
 myEventHubName="bluEventHub"
 
-# Have user login to their tenant
-az login
+# Have user login to their tenant, uncomment below line if running from local Azure CLI instance
+#az login
 
 # Set the Subscription that you'll be working with by ID, more reliable than name
 az account set \
@@ -77,8 +77,9 @@ for resourceID in "${resourceIDs[@]}"; do
     done
     # Remove last ',' from the json and replace with closing ']'
     #modifiedLogString=$logstring
-    modifiedLogString=${logString: :-1}
+    modifiedLogString=${logString::-1}
     modifiedLogString+="]"
+    echo $modifiedLogString > temp.json
     # Create the diagnostic setting for each resource ID with compiled json
     az monitor diagnostic-settings create \
         --name BlumiraDiagSetting \
@@ -86,10 +87,12 @@ for resourceID in "${resourceIDs[@]}"; do
         --resource-group $myResourceGroup \
         --event-hub $myEventHubID \
         --event-hub-rule $myRuleID \
-        --logs $modifiedLogString
+        --logs @./temp.json
 done
 
 # Output primary connection string for end-user to copy and use within Blumira
+echo "******************************************************************"
+echo "******************************************************************"
 echo "Primary Connection String (Please copy and paste this in Blumira):"
 az eventhubs namespace authorization-rule keys list \
     --resource-group $myResourceGroup \
@@ -98,4 +101,3 @@ az eventhubs namespace authorization-rule keys list \
 # Output event hub name for end-user to copy and use within Blumira
 echo "Event Hub Name (Please copy and past this in Blumira):"
 echo $myEventHubName
-

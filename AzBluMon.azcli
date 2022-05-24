@@ -55,7 +55,7 @@ echo "Please copy & document the primary connection string shown between the quo
 az eventhubs namespace authorization-rule keys list \
     --resource-group $myResourceGroup \
     --namespace-name $myEventHubNamespace \
-    --name "LogsToBlumira" | --query "primaryConnectionString"
+    --name "LogsToBlumira" --query "primaryConnectionString" -o tsv
 
 # Register Microsoft.Insights resource provider for subscription/tenant
 az provider register --namespace "Microsoft.Insights"

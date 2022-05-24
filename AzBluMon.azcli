@@ -86,5 +86,4 @@ for resourceID in "${resourceIDs[@]}"; do
         --event-hub $myEventHubID \
         --event-hub-rule $myRuleID \
         --logs $modifiedLogString
-    done
 done

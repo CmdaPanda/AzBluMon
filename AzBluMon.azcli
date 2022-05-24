@@ -65,7 +65,7 @@ az provider register --namespace "Microsoft.Insights"
 resourceIDs=($(az resource list -g TAM-ResourceGroup-Central-US --query "[].id" -o tsv))
 for resourceID in "${resourceIDs[@]}"; do
     # TODO: Create check to make sure we aren't creating a diagnostic setting for the event hub
-    logString='['
+    logString="["
     # For each resource ID we need to create another array to iterate through to create the log settings for each log category
     logCategories=($(az monitor diagnostic-settings categories list --resource $resourceID --query "value[?categoryType == 'Logs'].[name]" -o tsv))
     # Time to nest these for loops
@@ -76,8 +76,8 @@ for resourceID in "${resourceIDs[@]}"; do
       logString+='"enabled": true, "retentionPolicy": {"enabled": false, "days": 0 }},'
     done
     # Remove last ',' from the json and replace with closing ']'
-    modifiedLogString=${logString: :-1}
-    modifiedLogString+=']'
+    modifiedLogString=$logstring
+    modifiedLogString+="]"
     # Create the diagnostic setting for each resource ID with compiled json
     az monitor diagnostic-settings create \
         --name BlumiraDiagSetting \

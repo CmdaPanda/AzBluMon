@@ -42,6 +42,7 @@ az eventhubs eventhub create \
     --name $myEventHubName \
     --namespace-name $myEventHubNamespace \
     --resource-group $myResourceGroup \
+    --partition-count 2 \
     --message-retention 1
 
 # Get and store the resource ID for the event hub just created
@@ -64,6 +65,7 @@ az provider register --namespace "Microsoft.Insights"
 # Start with creating array of resource IDs to iterate through
 resourceIDs=($(az resource list -g TAM-ResourceGroup-Central-US --query "[].id" -o tsv))
 for resourceID in "${resourceIDs[@]}"; do
+    # TODO: Create check to make sure we aren't creating a diagnostic setting for the event hub
     logString='['
     # For each resource ID we need to create another array to iterate through to create the log settings for each log category
     logCategories=($(az monitor diagnostic-settings categories list --resource $resourceID --query "value[?categoryType == 'Logs'].[name]" -o tsv))
@@ -78,7 +80,6 @@ for resourceID in "${resourceIDs[@]}"; do
     modifiedLogString=${logString: :-1}
     modifiedLogString+=']'
     # Create the diagnostic setting for each resource ID with compiled json
-    # TODO: Create check to make sure we aren't creating a diagnostic setting for the event hub
     az monitor diagnostic-settings create \
         --name BlumiraDiagSetting \
         --resource $resourceID \

@@ -51,7 +51,7 @@ myEventHubID=$(az eventhubs eventhub list --namespace-name $myEventHubNamespace 
 myRuleID=$(az eventhubs namespace authorization-rule list --resource-group $myResourceGroup --namespace-name $myEventHubNamespace --query "[?name == 'RootManageSharedAccessKey'].id" -o tsv)
 
 # Output primary connection string for end-user to copy and use within Blumira
-echo "Please copy & document the primary connection string shown between the quotation marks starting w/ Endpoint="
+echo "Please copy & document the primary connection string shown below (the ENTIRE output)"
 az eventhubs namespace authorization-rule keys list \
     --resource-group $myResourceGroup \
     --namespace-name $myEventHubNamespace \

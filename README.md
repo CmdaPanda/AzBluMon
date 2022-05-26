@@ -5,4 +5,4 @@ Automate the deployment of Azure Monitor Diagnostic Settings for the integration
 **Make sure before running this you run chmod +x /path/to/file**
 
 What's not working or needs changed:
-Add in ability to change defaults for storage account Table, Queue, File and Blob services diagnostic settings, currently does not work in that conext
+Checks for unsupported resources, need to list out all of these and get case statements to get it working right.

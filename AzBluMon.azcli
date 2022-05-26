@@ -42,13 +42,6 @@ az eventhubs namespace create \
 # Give time for Azure to enumerate event hub namespace
 sleep 30s
 
-# Set SAS Auth and Rules for Event Hub
-az eventhubs namespace authorization-rule create \
-    --namespace-name $myEventHubNamespace \
-    --resource-group $myResourceGroup \
-    --name "LogsToBlumira" \
-    --rights Listen
-
 # Create the Azure Event Hub
 az eventhubs eventhub create \
     --name $myEventHubName \
@@ -57,14 +50,19 @@ az eventhubs eventhub create \
     --partition-count 2 \
     --message-retention 1
 
-sleep 30s
+# Set SAS Auth and Rules for Event Hub Listener, this is what the sensor uses
+az eventhubs namespace authorization-rule create \
+    --name "LogsToBlumira" \
+    --namespace-name $myEventHubNamespace \
+    --resource-group $myResourceGroup \
+    --rights Listen
 
 # Get and store the resource ID for the event hub just created
 myEventHubID=$(az eventhubs eventhub show --name $myEventHubName --resource-group $myResourceGroup --namespace-name $myEventHubNamespace --query "id" -o tsv)
-
+echo $myEventHubID
 # Get and store the authorization ID for the rootManagedShareKey rule for continued setup of resources
-myRuleID=$(az eventhubs namespace authorization-rule list --resource-group $myResourceGroup --namespace-name $myEventHubNamespace --query "[?name == 'RootManageSharedAccessKey'].id" -o tsv)
-
+myRuleID=$(az eventhubs namespace authorization-rule show --name "RootManageSharedAccessKey" --resource-group $myResourceGroup --namespace-name $myEventHubNamespace --query "id" -o tsv)
+echo $myRuleID
 # Register Microsoft.Insights resource provider for subscription/tenant
 az provider register --namespace "Microsoft.Insights"
 
@@ -76,9 +74,10 @@ resourceIDs=($(az resource list -g $myResourceGroup --query "[].id" -o tsv))
 for resourceID in "${resourceIDs[@]}"; do
     # Check if any resources are storage accounts
     resourceType=$(az resource show -g $myResourceGroup --id $resourceID --query "type" -o tsv)
+    resourceName=$(az resource show -g $myResourceGroup --id $resourceID --query "name" -o tsv)
     # If there are any storage accounts set diagnostic settings for each default resource type underneath blob, files, table, queue
     if [[ $resourceType = "Microsoft.Storage/storageAccounts" ]]; then
-        storageResourceIDs=( $resourceID"/blobServices/default" $resourceID"/tableServices/default" $resourceID"/queueServices/default" $resourceID"/fileServices/default" ) 
+        storageResourceIDs=( $resourceID"/blobServices/default" $resourceID"/tableServices/default" $resourceID"/queueServices/default" $resourceID"/fileServices/default" )
         # For each storage service default resource ID build the log json template on the fly and apply it to the diagnostic setting 
         for storageResourceID in "${storageResourceIDs[@]}"; do
             logString="["
@@ -97,13 +96,16 @@ for resourceID in "${resourceIDs[@]}"; do
             echo $modifiedLogString > temp.json
             # Create the diagnostic setting for each resource ID with compiled json
             az monitor diagnostic-settings create \
-                --name BlumiraDiagSetting \
+               --name BlumiraDiagSetting \
                 --resource $storageResourceID \
                 --resource-group $myResourceGroup \
                 --event-hub $myEventHubID \
                 --event-hub-rule $myRuleID \
                 --logs @./temp.json
         done
+    # Skip namespaces
+    elif [[ $resourceName = $myEventHubNamespace ]] || [[ $resourceType = "microsoft.compute/disks" ]] || [[ $resourceType = "microsoft.compute/snapshots" ]] || [[ $resourceType = "microsoft.compute/sshpublickeys" ]] || [[ $resourceType = "Microsoft.devtestlab/schedules" ]]; then
+        echo 'Resource not supported'
     # This section is dedicated to all resources under the az resource list command not including the nested resources
     else
         logString="["
@@ -124,7 +126,7 @@ for resourceID in "${resourceIDs[@]}"; do
             echo $modifiedLogString > temp.json
             # Create the diagnostic setting for each resource ID with compiled json
             az monitor diagnostic-settings create \
-                --name BlumiraDiagSetting \
+               --name BlumiraDiagSetting \
                 --resource $resourceID \
                 --resource-group $myResourceGroup \
                 --event-hub $myEventHubID \

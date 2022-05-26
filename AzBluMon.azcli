@@ -57,12 +57,9 @@ az eventhubs namespace authorization-rule create \
     --resource-group $myResourceGroup \
     --rights Listen
 
-# Get and store the resource ID for the event hub just created
-myEventHubID=$(az eventhubs eventhub show --name $myEventHubName --resource-group $myResourceGroup --namespace-name $myEventHubNamespace --query "id" -o tsv)
-echo $myEventHubID
 # Get and store the authorization ID for the rootManagedShareKey rule for continued setup of resources
 myRuleID=$(az eventhubs namespace authorization-rule show --name "RootManageSharedAccessKey" --resource-group $myResourceGroup --namespace-name $myEventHubNamespace --query "id" -o tsv)
-echo $myRuleID
+
 # Register Microsoft.Insights resource provider for subscription/tenant
 az provider register --namespace "Microsoft.Insights"
 
@@ -96,10 +93,10 @@ for resourceID in "${resourceIDs[@]}"; do
             echo $modifiedLogString > temp.json
             # Create the diagnostic setting for each resource ID with compiled json
             az monitor diagnostic-settings create \
-               --name BlumiraDiagSetting \
+                --name BlumiraDiagSetting \
                 --resource $storageResourceID \
                 --resource-group $myResourceGroup \
-                --event-hub $myEventHubID \
+                --event-hub $myEventHubName \
                 --event-hub-rule $myRuleID \
                 --logs @./temp.json
         done
@@ -126,10 +123,10 @@ for resourceID in "${resourceIDs[@]}"; do
             echo $modifiedLogString > temp.json
             # Create the diagnostic setting for each resource ID with compiled json
             az monitor diagnostic-settings create \
-               --name BlumiraDiagSetting \
+                --name BlumiraDiagSetting \
                 --resource $resourceID \
                 --resource-group $myResourceGroup \
-                --event-hub $myEventHubID \
+                --event-hub $myEventHubName \
                 --event-hub-rule $myRuleID \
                 --logs @./temp.json
         fi

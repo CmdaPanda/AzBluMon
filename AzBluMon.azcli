@@ -28,6 +28,8 @@ myEventHubName="blueventhub"
 az account set \
     --name $mySubscriptionID
 
+echo 'Subscirption set. Now building event hub namespace, SAS rules, and event hub'
+
 # Create the Azure Event Hub Namespace
 az eventhubs namespace create \
     --name $myEventHubNamespace \
@@ -36,6 +38,9 @@ az eventhubs namespace create \
     --sku Basic \
     --capacity 1 \
     --enable-auto-inflate false
+
+# Give time for Azure to enumerate event hub namespace
+sleep 30s
 
 # Set SAS Auth and Rules for Event Hub
 az eventhubs namespace authorization-rule create \
@@ -52,6 +57,8 @@ az eventhubs eventhub create \
     --partition-count 2 \
     --message-retention 1
 
+sleep 30s
+
 # Get and store the resource ID for the event hub just created
 myEventHubID=$(az eventhubs eventhub show --name $myEventHubName --resource-group $myResourceGroup --namespace-name $myEventHubNamespace --query "id" -o tsv)
 
@@ -61,15 +68,18 @@ myRuleID=$(az eventhubs namespace authorization-rule list --resource-group $myRe
 # Register Microsoft.Insights resource provider for subscription/tenant
 az provider register --namespace "Microsoft.Insights"
 
+
 # Set diagnostic settings for all resources in the resource group to the previously created event hub
 # Start with creating array of resource IDs to iterate through
+echo 'Building diagnostic settings templates and assigning them in monitor errors are to be expected for unsupported resources'
 resourceIDs=($(az resource list -g $myResourceGroup --query "[].id" -o tsv))
 for resourceID in "${resourceIDs[@]}"; do
     # Check if any resources are storage accounts
     resourceType=$(az resource show -g $myResourceGroup --id $resourceID --query "type" -o tsv)
-    # If there are any storage accounts set defaults for each resource underneath blob, files, table, queue
+    # If there are any storage accounts set diagnostic settings for each default resource type underneath blob, files, table, queue
     if [[ $resourceType = "Microsoft.Storage/storageAccounts" ]]; then
         storageResourceIDs=( $resourceID"/blobServices/default" $resourceID"/tableServices/default" $resourceID"/queueServices/default" $resourceID"/fileServices/default" ) 
+        # For each storage service default resource ID build the log json template on the fly and apply it to the diagnostic setting 
         for storageResourceID in "${storageResourceIDs[@]}"; do
             logString="["
             # For each resource ID we need to create another array to iterate through to create the log settings for each log category
@@ -88,7 +98,7 @@ for resourceID in "${resourceIDs[@]}"; do
             # Create the diagnostic setting for each resource ID with compiled json
             az monitor diagnostic-settings create \
                 --name BlumiraDiagSetting \
-                --resource $resourceID \
+                --resource $storageResourceID \
                 --resource-group $myResourceGroup \
                 --event-hub $myEventHubID \
                 --event-hub-rule $myRuleID \
@@ -97,7 +107,7 @@ for resourceID in "${resourceIDs[@]}"; do
     # This section is dedicated to all resources under the az resource list command not including the nested resources
     else
         logString="["
-        # For each resource ID we need to create another array to iterate through to create the log settings for each log category
+        # For each resource ID we need to create another array to iterate through to create the log settings on the fly for each log category
         logCategories=($(az monitor diagnostic-settings categories list --resource $resourceID --query "value[?categoryType == 'Logs'].[name]" -o tsv))
         # Loop through each category to build json
         for logCategory in "${logCategories[@]}"; do
@@ -109,7 +119,7 @@ for resourceID in "${resourceIDs[@]}"; do
         modifiedLogString=${logString::-1}
         modifiedLogString+="]"
         if [[ $modifiedLogString = "]" ]]; then
-            echo "Resource not supported"
+            echo 'Resource not supported'
         else
             echo $modifiedLogString > temp.json
             # Create the diagnostic setting for each resource ID with compiled json
@@ -125,13 +135,15 @@ for resourceID in "${resourceIDs[@]}"; do
 done
 
 # Output primary connection string for end-user to copy and use within Blumira
-echo "******************************************************************"
-echo "******************************************************************"
-echo "Primary Connection String (Please copy and paste this in Blumira):"
+echo '******************************************************************'
+echo '******************************************************************'
+echo 'Primary Connection String'
+echo 'Please copy and paste this in Blumira:'
 az eventhubs namespace authorization-rule keys list \
     --resource-group $myResourceGroup \
     --namespace-name $myEventHubNamespace \
     --name "LogsToBlumira" --query "primaryConnectionString" -o tsv
 # Output event hub name for end-user to copy and use within Blumira
-echo "Event Hub Name (Please copy and past this in Blumira):"
+echo 'Event Hub Name'
+echo 'Please copy and past this in Blumira:'
 echo $myEventHubName

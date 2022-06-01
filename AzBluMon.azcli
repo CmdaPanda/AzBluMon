@@ -56,7 +56,6 @@ az eventhubs eventhub create \
     --name $myEventHubName \
     --namespace-name $myEventHubNamespace \
     --resource-group $bluRG \
-    --partition-count 2 \
     --message-retention 1
 
 # Set SAS Auth and Rules for Event Hub Listener, this is what the sensor uses

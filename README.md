@@ -23,7 +23,7 @@ Once the script has started to run, you will be presented with the first prompt 
 
 After typing in or copying and pasting the Subscription ID, the script will ask you for a location or region ID. These are single simple strings that designate where the Event Hub and Namespace will be deployed. I'd recommend setting this to whereever the bulk of your resources are located. A list can be found of these but for example some are `eastus`,`eastus2`,`centralus`,`westus`, and many more. The list for these region codes can be found at this link (the name column are the compatible codes) https://azuretracks.com/2021/04/current-azure-region-names-reference/.
 
-The next input required is a unique name for the Event Hub Namespace. This must be unique across all Azure instances, if the creation of this resource fails the rest of the script will continue to error out and you'll need to restart the script by running the code block above once more.
+The next input required is a unique name for the Event Hub Namespace. This must be unique across all Azure instances, if the creation of this resource fails the rest of the script will continue to error out and you'll need to restart the script by running the code block above once more. Before restarting the script run it is required to delete the newly created Blumira resource group. To do so run `az group delete --name blu-eventhub-rg`, when prompted type in `Y` and click `Enter`.
 
 ## Closing Out
 This script is still being worked on, in the future I hope to have a subscription selector further reducing the the need for manual input and I need to account for more resources that do not support the `Log` category in Azure Monitor Diagnostic Settings.

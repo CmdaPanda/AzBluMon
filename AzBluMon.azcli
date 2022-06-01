@@ -30,7 +30,7 @@ az account set \
 myResourceGroups=($(az group list --query "[].name" -o tsv))
 
 # Let the user know what's going on at this stage
-echo "Subscirption $mySubscriptionID set. Creating Blumira resource group."
+echo "Subscription $mySubscriptionID set. Creating Blumira resource group."
 
 # Create the new standardized resource group, place in same location as given above
 az group create --location $myLocation --name $bluRG

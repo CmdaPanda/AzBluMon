@@ -15,6 +15,7 @@ Before running the script it is recommended that you set up or configure Azure C
 To get started copy and paste the following into your Azure Cloud Shell terminal window. The following commands clone the repo, place you in the directory, set the script to have the proper permissions to run, and finally run the script.
 
 ```Bash
+git clone https://github.com/jkikaniblu/AzBluMon.git
 cd ./AzBluMon
 chmod +x ./AzBluMon.azcli
 ./AzBluMon.azcli

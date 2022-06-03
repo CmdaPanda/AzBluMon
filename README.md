@@ -3,7 +3,7 @@ Automate the deployment of Azure Monitor Diagnostic Settings for the integration
 
 ## Pre-requisites
 This script assumes the following:
-1. You have an Azure subscription (Have not tested with Gov Cloud only standard Azure Subscriptions)
+1. You have an Azure subscription (have not tested with Gov Cloud only standard Azure subscriptions)
 2. Most or all of the resources you wish to monitor are contained inside of said subscription
 3. You know or can set up an Azure CLI cloud shell or have a local machine that is using `BASH` and not `ZSH`
 

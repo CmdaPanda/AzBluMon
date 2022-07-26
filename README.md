@@ -1,5 +1,5 @@
 # AzBluMon
-Automate the deployment of Azure Monitor Diagnostic Settings for the integration with Blumira SIEM. For additional information regarding Blumira's eventhubs information please see, https://blumira.zendesk.com/hc/en-us/articles/4854089610643-Integrating-with-Microsoft-Azure-Event-Hubs#01FYS6Z0F1SG9GZFX1J6A1CGJ2
+Automate the deployment of Azure Monitor Diagnostic Settings for the integration with Blumira SIEM. For additional information regarding Blumira's eventhubs information please see, https://blumira.zendesk.com/hc/en-us/articles/4854089610643-Integrating-with-Microsoft-Azure-Event-Hubs#01FYS6Z0F1SG9GZFX1J6A1CGJ2.
 
 ## Pre-requisites
 This script assumes the following:

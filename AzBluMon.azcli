@@ -26,6 +26,9 @@ read myEventHubNamespace
 az account set \
     --name $mySubscriptionID
 
+#Register Microsoft.Insights resource provider, won't hurt to re-run if it already is registered
+az provider register --namespace 'microsoft.insights'
+
 # Get resource groups
 myResourceGroups=($(az group list --query "[].name" -o tsv))
 

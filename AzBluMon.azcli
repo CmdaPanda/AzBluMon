@@ -1,5 +1,11 @@
 #!/bin/bash
-# Author: Justin Kikani 5/18/2022
+# Author: Justin Kikani 
+# Initial Release: 5/18/2022
+# Last Modified: 10/6/2022
+# Version: 1.1.0
+# Release Notes: This script has been modified to be re-runnable, in that it will
+# detect if this script has been run before. If so, it will simply modify settings
+# rather than create resources. 
 # Purpose: To simplify the creation of the event hubs integration for blumira within Azure, 
 # this is meant to turn on the diagnostic settings for Azure resources located within the 
 # same resource group as the created namespace name, due to the way licensing works within Azure
@@ -14,13 +20,9 @@ myEventHubName="blueventhub"
 # Have user login to their tenant, uncomment below line if running from local Azure CLI instance
 #az login
 
-# Get Subscription ID from user along with the location and namespace name
+# Get Subscription ID from user 
 echo 'What is your Subscription ID? This can be found at https://portal.azure.com/#blade/Microsoft_Azure_Billing/SubscriptionsBlade copy and paste the link in a new browser tab.'
 read mySubscriptionID
-echo "Where are the majority of your resources located? eg eastus, centralus, westus2"
-read myLocation
-echo "What would you like to name your Event Hub Namespace? Please note this must be unique."
-read myEventHubNamespace
 
 # Set the Subscription that you'll be working with by ID, more reliable than name
 az account set \
@@ -32,41 +34,63 @@ az provider register --namespace 'microsoft.insights'
 # Get resource groups
 myResourceGroups=($(az group list --query "[].name" -o tsv))
 
-# Let the user know what's going on at this stage
-echo "Subscription $mySubscriptionID set. Creating Blumira resource group."
+# Check if the resource group has been created already, if so
+# We're going to branch off from the existing logic and test if a few other things exist
+myEventHubNamespace=($(az resource list -g $bluRG --query "[].name" -o tsv))
+checkEventHubName=($(az eventhubs eventhub list -g $bluRG --namespace-name $myEventHubNamespace --query "[].name" -o tsv))
 
-# Create the new standardized resource group, place in same location as given above
-az group create --location $myLocation --name $bluRG
+# Now that the check has been stored, test with if else
+if [[ $(az group exists -n $bluRG) = true ]] && [[ $myEventHubName = $checkEventHubName ]]; then
+    echo "This appears to be a secondary run, validating and enabling logging configurations without changing resource groups or resources."
 
-echo "Creating Event Hub Namespace"
+    # Get the location ID from the namespace
+    myLocation=($(az eventhubs eventhub list -g $bluRG --namespace-name $myEventHubNamespace --query "[].location" -o tsv))
+else
+    # Get the location id from the user
+    echo "Where are the resources you wish to monitor located? Please note: All resources MUST be in the same region. eg eastus, centralus, westus2"
+    read myLocation
+    # Get the Namespace name from the user
+    echo "What would you like to name your Event Hub Namespace? Please note this must be unique."
+    read myEventHubNamespace
+    # Let the user know what's going on at this stage
+    echo "Subscription $mySubscriptionID set. Creating Blumira resource group."
 
-# Create the Azure Event Hub Namespace
-az eventhubs namespace create \
-    --name $myEventHubNamespace \
-    --resource-group $bluRG \
-    --location $myLocation \
-    --sku Basic \
-    --capacity 1 \
-    --enable-auto-inflate false
+    # Create the new standardized resource group, place in same location as given above
+    az group create --location $myLocation --name $bluRG
 
-# Give time for Azure to enumerate event hub namespace
-sleep 30s
+    echo "Creating Event Hub Namespace"
 
-echo "Creating Event Hub and Authorization Rule under the Namespace"
+    # Create the Azure Event Hub Namespace
+    az eventhubs namespace create \
+        --name $myEventHubNamespace \
+        --resource-group $bluRG \
+        --location $myLocation \
+        --sku Basic \
+        --capacity 1 \
+        --enable-auto-inflate false \
+        --output none
 
-# Create the Azure Event Hub
-az eventhubs eventhub create \
-    --name $myEventHubName \
-    --namespace-name $myEventHubNamespace \
-    --resource-group $bluRG \
-    --message-retention 1
+    # Give time for Azure to enumerate event hub namespace
+    sleep 30s
 
-# Set SAS Auth and Rules for Event Hub Listener, this is what the sensor uses
-az eventhubs namespace authorization-rule create \
-    --name "LogsToBlumira" \
-    --namespace-name $myEventHubNamespace \
-    --resource-group $bluRG \
-    --rights Listen
+    echo "Creating Event Hub and Authorization Rule under the Namespace"
+
+    # Create the Azure Event Hub
+    az eventhubs eventhub create \
+        --name $myEventHubName \
+        --namespace-name $myEventHubNamespace \
+        --resource-group $bluRG \
+        --message-retention 1 \
+        --output none
+
+    # Set SAS Auth and Rules for Event Hub Listener, this is what the sensor uses
+    az eventhubs namespace authorization-rule create \
+        --name "LogsToBlumira" \
+        --namespace-name $myEventHubNamespace \
+        --resource-group $bluRG \
+        --rights Listen \
+        --output none
+fi
 
 # Get and store the authorization ID for the rootManagedShareKey rule for continued setup of resources
 myRuleID=$(az eventhubs namespace authorization-rule show --name "RootManageSharedAccessKey" --resource-group $bluRG --namespace-name $myEventHubNamespace --query "id" -o tsv)
@@ -74,19 +98,18 @@ myRuleID=$(az eventhubs namespace authorization-rule show --name "RootManageShar
 # Register Microsoft.Insights resource provider for subscription/tenant
 az provider register --namespace "Microsoft.Insights"
 
-echo 'Building diagnostic settings templates and assigning them in monitor errors are to be expected for unsupported resources'
+echo 'Building diagnostic settings templates and assigning them in monitor errors are to be expected for unsupported resources.'
 
 # Loop through each Resource Group in the subscription
 for resourceGroup in "${myResourceGroups[@]}"; do
     # Set diagnostic settings for all resources in the resource group to the previously created event hub
     # Start with creating array of resource IDs to iterate through
-    resourceIDs=($(az resource list -g $resourceGroup --query "[].id" -o tsv))
+    resourceIDs=($(az resource list -g $resourceGroup --location $myLocation --query "[].id" -o tsv))
     for resourceID in "${resourceIDs[@]}"; do
         # Check if any resources are storage accounts
         resourceType=$(az resource show -g $resourceGroup --id $resourceID --query "type" -o tsv)
         # If there are any storage accounts set diagnostic settings for each default resource type underneath blob, files, table, queue
         case $resourceType in
-            
             Microsoft.Storage/storageAccounts)
                 storageResourceIDs=( $resourceID"/blobServices/default" $resourceID"/tableServices/default" $resourceID"/queueServices/default" $resourceID"/fileServices/default" )
                 # For each storage service default resource ID build the log json template on the fly and apply it to the diagnostic setting 
@@ -111,32 +134,27 @@ for resourceGroup in "${myResourceGroups[@]}"; do
                         --resource $storageResourceID \
                         --event-hub $myEventHubName \
                         --event-hub-rule $myRuleID \
-                        --logs @./temp.json
+                        --logs @./temp.json \
+                        --output none
                 done
                 ;;
             microsoft.devtestlab/schedules)
-                echo "$resourceType not supported"
                 ;;
             Microsoft.ContainerInstance/containerGroups)
-                echo "$resourceType not supported"
                 ;;
             Microsoft.Compute/snapshots)
-                echo "$resourceType not supported"
                 ;;
-            Microsoft.Compute/virtualMachines)
-                echo "$resourceType not supported"
+            Microsoft.Compute/virtualMachines*)
                 ;;
             Microsoft.Compute/disks)
-                echo "$resourceType not supported"
                 ;;
             Microsoft.Network/networkInterfaces)
-                echo "$resourceType not supported"
                 ;;
             Microsoft.Network/networkWatchers)
-                echo "$resourceType not supported"
+                ;;
+            Microsoft.Compute/images)
                 ;;
             "")
-                echo "Resource not supported"
                 ;;
             *)
                 logString="["
@@ -151,9 +169,8 @@ for resourceGroup in "${myResourceGroups[@]}"; do
                 modifiedLogString=$logstring
                 modifiedLogString=${logString::-1}
                 modifiedLogString+="]"
-                if [[ $modifiedLogString = "]" ]]; then
-                    echo 'Resource not supported'
-                else
+                # Skip this resource nothing exists
+                if [[ $modifiedLogString != "]" ]]; then  
                     echo $modifiedLogString > temp.json
                     # Create the diagnostic setting for each resource ID with compiled json
                     az monitor diagnostic-settings create \
@@ -161,7 +178,8 @@ for resourceGroup in "${myResourceGroups[@]}"; do
                         --resource $resourceID \
                         --event-hub $myEventHubName \
                         --event-hub-rule $myRuleID \
-                        --logs @./temp.json
+                        --logs @./temp.json \
+                        --output none
                 fi
                 ;;
         esac
@@ -174,9 +192,9 @@ echo '******************************************************************'
 echo 'You will need the Primary Connection String and the Event Hub name to copy and paste in the sensor module within Blumira.'
 echo 'Primary Connection String'
 az eventhubs namespace authorization-rule keys list \
-    --resource-group $bluRG \
-    --namespace-name $myEventHubNamespace \
-    --name "LogsToBlumira" --query "primaryConnectionString" -o tsv
+--resource-group $bluRG \
+--namespace-name $myEventHubNamespace \
+--name "LogsToBlumira" --query "primaryConnectionString" -o tsv
 # Output event hub name for end-user to copy and use within Blumira
 echo 'Event Hub Name'
 echo $myEventHubName

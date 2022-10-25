@@ -186,6 +186,15 @@ for resourceGroup in "${myResourceGroups[@]}"; do
     done
 done
 
+# Create diagnostic settings for Azure Subscription that was specified by the user
+az monitor diagnostic-settings subscription create \
+    --name BlumiraDiagSetting \
+    --location $myLocation \
+    --event-hub-name $myEventHubName \
+    --event-hub-auth-rule $myRuleID \
+    --logs '[{"category": "Security","enabled": true},{"category": "Administrative","enabled": true},{"category": "ServiceHealth","enabled": true},{"category": "Alert","enabled": true},{"category": "Recommendation","enabled": true},{"category": "Policy","enabled": true},{"category": "Autoscale","enabled": true},{"category": "ResourceHealth","enabled": true}]' \
+    --output none
+
 # Output primary connection string for end-user to copy and use within Blumira
 echo '******************************************************************'
 echo '******************************************************************'
